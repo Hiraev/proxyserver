@@ -85,6 +85,10 @@ public class Cache {
         return !cache.isEmpty();
     }
 
+    synchronized boolean isEmpty() {
+        return cache.isEmpty();
+    }
+
     public Deque<String> getOrderedKeys() {
         return orderedKeys;
     }

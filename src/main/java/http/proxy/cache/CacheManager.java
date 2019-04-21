@@ -6,6 +6,8 @@ import okhttp3.Response;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import static http.proxy.constants.Constants.*;
+
 public final class CacheManager {
 
     private long maxSize;
@@ -13,7 +15,6 @@ public final class CacheManager {
     private Logger logger;
     private final Cache cache;
     private TimerTask cleaner;
-    private static String loggerPrefix = "CACHE ";
 
     /**
      * @param maxSize  максимальный размер кэша в байтах
@@ -32,7 +33,7 @@ public final class CacheManager {
             initCleaner();
             final Timer timer = new Timer();
             /** Запускаем чистку кэша по расписанию через каждые lifetime миллисекунд */
-            timer.schedule(cleaner, 0, lifetime);
+            timer.schedule(cleaner, 0, this.lifetime);
         }
     }
 
@@ -51,21 +52,22 @@ public final class CacheManager {
             public void run() {
                 /** Выполняем синхронизацию по кэшу, чтобы он не менялся пока идет чистка*/
                 synchronized (cache.getOrderedKeys()) {
+                    if (cache.isEmpty()) return;
                     try {
                         while (cache.isNotEmpty() && System.currentTimeMillis() - cache.oldestCreatedTime() > lifetime) {
                             final String removedUrl = cache.removeOldest();
                             if (logger != null)
                                 logger.log(Logger.Level.INFO,
-                                        loggerPrefix +
-                                                "REMOVED (OUTDATED): " +
+                                        CACHE_OUTDATED +
+                                                SPACE +
                                                 cache.getSize() +
-                                                ": " +
+                                                SPACE +
                                                 removedUrl
                                 );
                         }
                     } catch (IllegalStateException e) {
                         if (logger != null)
-                            logger.log(Logger.Level.EXCEPTION, "Caught EXCEPTION when clearing " + e.getMessage());
+                            logger.log(Logger.Level.EXCEPTION, VERY_BAD_CACHE_EXCEPTION + SPACE + e.getMessage());
                     }
                 }
             }
@@ -79,7 +81,11 @@ public final class CacheManager {
             if (responseWrapper.isValid()) {
                 if (maxSize < responseWrapper.length()) {
                     if (logger != null)
-                        logger.log(Logger.Level.WARNING, loggerPrefix + "too big buffer: " + responseWrapper.length() + " bytes");
+                        logger.log(Logger.Level.WARNING,
+                                CACHE_TOO_BIG +
+                                        SPACE +
+                                        responseWrapper.length() +
+                                        " bytes");
                     return;
                 }
             }
@@ -87,16 +93,24 @@ public final class CacheManager {
             while (cache.getSize() + responseWrapper.length() > maxSize) {
                 final String removedUrl = cache.removeOldest();
                 if (logger != null)
-                    logger.log(Logger.Level.INFO, loggerPrefix + "REMOVED (NO SPACE) " + cache.getSize() + ": " + removedUrl);
+                    logger.log(Logger.Level.INFO,
+                            CACHE_NO_SPACE +
+                                    SPACE +
+                                    cache.getSize() +
+                                    SPACE +
+                                    HEADER_DELIM +
+                                    SPACE +
+                                    removedUrl);
             }
             cache.put(url, responseWrapper);
-            logger.log(Logger.Level.INFO, loggerPrefix + "INSERTED " + response.request().url());
+            logger.log(Logger.Level.INFO, CACHE_INSERTED + SPACE + response.request().url());
         }
     }
 
     public Response getResponse(final String url) {
         synchronized (cache.getOrderedKeys()) {
             if (!contains(url)) return null;
+            logger.log(Logger.Level.INFO, CACHE_RETURNED + SPACE + url);
             return cache.get(url).getResponse();
         }
     }

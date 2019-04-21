@@ -23,6 +23,14 @@ public class ResponseWrapper {
         }
     }
 
+    private ResponseWrapper(ResponseWrapper responseWrapper) {
+        this.valid = responseWrapper.valid;
+        this.length = responseWrapper.length;
+        this.response = cloneResponse(responseWrapper.response, responseWrapper.body);
+        this.createdTime = responseWrapper.createdTime;
+        this.body = responseWrapper.body;
+    }
+
     public boolean isValid() {
         return valid;
     }
@@ -60,6 +68,6 @@ public class ResponseWrapper {
     }
 
     public ResponseWrapper copy() {
-        return new ResponseWrapper(this.response, body);
+        return new ResponseWrapper(this);
     }
 }

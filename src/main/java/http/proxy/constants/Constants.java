@@ -2,6 +2,14 @@ package http.proxy.constants;
 
 public final class Constants {
 
+    public static final String CACHE_RETURNED = "Cache returned";
+    public static final String CACHE_INSERTED = "Cache inserted";
+    public static final String CACHE_REMOVED = "Cache removed";
+    public static final String CACHE_OUTDATED = CACHE_REMOVED + " (OUTDATED)";
+    public static final String CACHE_NO_SPACE = CACHE_REMOVED + " (NO SPACE)";
+    public static final String CACHE_TOO_BIG = "Cache doesn't have enough space for this";
+    public static final String VERY_BAD_CACHE_EXCEPTION = "Caught EXCEPTION when clearing the cache";
+
     public static final String VERY_BAD_EXCEPTION = "Caught an exception when trying to report another exception";
     public static final String ON_FAILURE = "On failure";
 

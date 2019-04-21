@@ -57,9 +57,8 @@ public final class SocketHandler implements Runnable {
                 }
             } else getUnsafeOkHttpClientBuilder()
                     .proxy(Proxy.NO_PROXY)
-                    .readTimeout(10, TimeUnit.SECONDS)
-                    .callTimeout(10, TimeUnit.SECONDS)
-//                    .cache(new Cache(new File("cache"), 20000000))
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .callTimeout(30, TimeUnit.SECONDS)
                     .build()
                     .newCall(requestReader.toRequest())
                     .enqueue(new StandardCallback(l, socket, os, false));
@@ -175,7 +174,6 @@ public final class SocketHandler implements Runnable {
                 socket.close();
 
                 if (cached) {
-                    l.log(Logger.Level.INFO, socket, "CACHE RET" + SPACE + response.request().url().toString());
                 } else {
                     //TODO check it
                     if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
