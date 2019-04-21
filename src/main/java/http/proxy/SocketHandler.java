@@ -235,9 +235,8 @@ public final class SocketHandler implements Runnable {
                 os.flush();
                 socket.close();
 
-                if (cached) {
-                } else {
-                    //TODO check it
+                if (!cached) {
+                    /** Если ответ был кэширован и если он получен методом GET, то кэшируем его*/
                     if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
                         cm.put(call.request().url().toString(), response, body);
                     }
