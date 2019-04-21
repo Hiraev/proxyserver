@@ -8,6 +8,7 @@ import http.proxy.logger.Logger;
 import http.proxy.utils.RequestReader;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
 import java.io.IOException;
@@ -19,7 +20,6 @@ import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
 
 import static http.proxy.constants.Constants.*;
-import static http.proxy.ssl.UnsafeOkHttpClient.getUnsafeOkHttpClientBuilder;
 
 public final class SocketHandler implements Runnable {
 
@@ -55,7 +55,12 @@ public final class SocketHandler implements Runnable {
                         l.log(Logger.Level.EXCEPTION, VERY_BAD_EXCEPTION + SPACE + ee.getMessage());
                     }
                 }
-            } else getUnsafeOkHttpClientBuilder()
+                /**
+                 * Если возникунт ошибки, связанные с безопасностью, то здесь вместо
+                 * new OkHttpClient.Builder() вызвать getUnsafeOkHttpClientBuilder()
+                 * из класса http.proxy.ssl.UnsafeOkHttpClient
+                 */
+            } else new OkHttpClient.Builder()
                     .proxy(Proxy.NO_PROXY)
                     .readTimeout(30, TimeUnit.SECONDS)
                     .callTimeout(30, TimeUnit.SECONDS)
