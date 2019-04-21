@@ -1,4 +1,4 @@
-package http.proxy.utils;
+package http.proxy.ssl;
 
 import okhttp3.OkHttpClient;
 

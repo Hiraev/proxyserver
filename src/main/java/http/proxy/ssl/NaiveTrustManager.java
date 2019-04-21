@@ -1,4 +1,4 @@
-package http.proxy.utils;
+package http.proxy.ssl;
 
 import javax.net.ssl.X509TrustManager;
 import java.security.cert.CertificateException;

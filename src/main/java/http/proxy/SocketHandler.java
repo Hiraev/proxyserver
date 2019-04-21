@@ -19,7 +19,7 @@ import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
 
 import static http.proxy.constants.Constants.*;
-import static http.proxy.utils.UnsafeOkHttpClient.getUnsafeOkHttpClientBuilder;
+import static http.proxy.ssl.UnsafeOkHttpClient.getUnsafeOkHttpClientBuilder;
 
 public final class SocketHandler implements Runnable {
 
