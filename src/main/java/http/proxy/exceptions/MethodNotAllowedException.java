@@ -6,7 +6,6 @@ import java.util.List;
 /**
  * Исключение для не поддерживаемых запросов
  */
-
 import static http.proxy.constants.Constants.*;
 
 public class MethodNotAllowedException extends Exception {
