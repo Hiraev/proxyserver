@@ -63,20 +63,24 @@ public final class CacheManager {
                 synchronized (cache) {
                     if (cache.isEmpty()) return;
                     try {
-                        while (cache.isNotEmpty() && System.currentTimeMillis() - cache.oldestCreatedTime() > lifetime) {
+                        while (cache.isNotEmpty()
+                                && System.currentTimeMillis() - cache.oldestCreatedTime() > lifetime
+                        ) {
                             final String removedUrl = cache.removeOldest();
                             if (logger != null)
-                                logger.log(Logger.Level.INFO,
-                                        CACHE_OUTDATED +
-                                                SPACE +
-                                                cache.getSize() +
-                                                SPACE +
-                                                removedUrl
+                                logger.log(Logger.Level.INFO, CACHE_OUTDATED +
+                                        SPACE +
+                                        cache.getSize() +
+                                        SPACE +
+                                        removedUrl
                                 );
                         }
                     } catch (IllegalStateException e) {
                         if (logger != null)
-                            logger.log(Logger.Level.EXCEPTION, VERY_BAD_CACHE_EXCEPTION + SPACE + e.getMessage());
+                            logger.log(Logger.Level.EXCEPTION, VERY_BAD_CACHE_EXCEPTION +
+                                    SPACE +
+                                    e.getMessage()
+                            );
                     }
                 }
             }
@@ -85,19 +89,19 @@ public final class CacheManager {
 
     /**
      * Кладем новое значение в кэш, если раньше его там не было.
-     *
+     * <p>
      * Ответ и тело ответа передаются отдельно, чтобы было
      * удобнее копировать кэшированный ответ.
-     *
+     * <p>
      * Если в кэше недостатоно места, то будем удалять оттуда
      * элементы, пока место не появится.
-     *
+     * <p>
      * Если всталяемый файл слишком большой для кеша, то вставка
      * не произойдет
      *
-     * @param url адрес
+     * @param url      адрес
      * @param response ответ
-     * @param body тело ответа
+     * @param body     тело ответа
      */
     public void put(final String url, final Response response, byte[] body) {
         synchronized (cache) {
@@ -106,11 +110,11 @@ public final class CacheManager {
             if (responseWrapper.isValid()) {
                 if (maxSize < responseWrapper.length()) {
                     if (logger != null)
-                        logger.log(Logger.Level.WARNING,
-                                CACHE_TOO_BIG +
-                                        SPACE +
-                                        responseWrapper.length() +
-                                        " bytes");
+                        logger.log(Logger.Level.WARNING, CACHE_TOO_BIG +
+                                SPACE +
+                                responseWrapper.length() +
+                                " bytes"
+                        );
                     return;
                 }
             }
@@ -118,22 +122,27 @@ public final class CacheManager {
             while (cache.getSize() + responseWrapper.length() > maxSize) {
                 final String removedUrl = cache.removeOldest();
                 if (logger != null)
-                    logger.log(Logger.Level.INFO,
-                            CACHE_NO_SPACE +
-                                    SPACE +
-                                    cache.getSize() +
-                                    SPACE +
-                                    HEADER_DELIM +
-                                    SPACE +
-                                    removedUrl);
+                    logger.log(Logger.Level.INFO, CACHE_NO_SPACE +
+                            SPACE +
+                            cache.getSize() +
+                            SPACE +
+                            HEADER_DELIM +
+                            SPACE +
+                            removedUrl
+                    );
             }
             cache.put(url, responseWrapper);
-            logger.log(Logger.Level.INFO, CACHE_INSERTED + SPACE + response.request().url());
+            logger.log(Logger.Level.INFO,
+                    CACHE_INSERTED +
+                            SPACE +
+                            response.request().url()
+            );
         }
     }
 
     /**
      * Получить кэшированный ответ из кэша
+     *
      * @param url адрес
      * @return кэшированный ответ
      */
