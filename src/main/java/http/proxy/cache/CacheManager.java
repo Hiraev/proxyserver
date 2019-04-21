@@ -51,7 +51,7 @@ public final class CacheManager {
             @Override
             public void run() {
                 /** Выполняем синхронизацию по кэшу, чтобы он не менялся пока идет чистка*/
-                synchronized (cache.getOrderedKeys()) {
+                synchronized (cache) {
                     if (cache.isEmpty()) return;
                     try {
                         while (cache.isNotEmpty() && System.currentTimeMillis() - cache.oldestCreatedTime() > lifetime) {
@@ -75,7 +75,7 @@ public final class CacheManager {
     }
 
     public void put(final String url, final Response response, byte[] body) {
-        synchronized (cache.getOrderedKeys()) {
+        synchronized (cache) {
             if (cache.contains(url)) return;
             ResponseWrapper responseWrapper = new ResponseWrapper(response, body);
             if (responseWrapper.isValid()) {
@@ -108,7 +108,7 @@ public final class CacheManager {
     }
 
     public Response getResponse(final String url) {
-        synchronized (cache.getOrderedKeys()) {
+        synchronized (cache) {
             if (!contains(url)) return null;
             logger.log(Logger.Level.INFO, CACHE_RETURNED + SPACE + url);
             return cache.get(url).getResponse();
@@ -117,7 +117,7 @@ public final class CacheManager {
 
 
     public boolean contains(final String url) {
-        synchronized (cache.getOrderedKeys()) {
+        synchronized (cache) {
             return cache.contains(url);
         }
     }
