@@ -240,7 +240,13 @@ public final class SocketHandler implements Runnable {
                     if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
                         cm.put(call.request().url().toString(), response, body);
                     }
-                    l.log(Logger.Level.INFO, socket, response.request().method(), response.request().url().toString(), false, null);
+                    l.log(Logger.Level.INFO,
+                            socket,
+                            response.request().method(),
+                            response.request().url().toString(),
+                            false,
+                            null
+                    );
                 }
 
             } catch (IOException e) {
