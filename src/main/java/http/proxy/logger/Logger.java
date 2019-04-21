@@ -1,7 +1,6 @@
 package http.proxy.logger;
 
 import java.net.Socket;
-import java.util.logging.Level;
 
 public interface Logger {
 
