@@ -3,6 +3,10 @@ package http.proxy.exeptions;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Исключение для не поддерживаемых запросов
+ */
+
 import static http.proxy.constants.Constants.*;
 
 public class MethodNotAllowedException extends Exception {
@@ -18,10 +22,16 @@ public class MethodNotAllowedException extends Exception {
         return METHOD_NOT_ALLOWED;
     }
 
+    /**
+     * @return список доступных методоа
+     */
     public List<String> getAllowedMethods() {
         return Arrays.asList(GET_METHOD, POST_METHOD, HEAD_METHOD);
     }
 
+    /**
+     * @return метод, который был запошен
+     */
     public String getRequestedMethod() {
         return method;
     }

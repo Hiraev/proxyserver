@@ -21,6 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 import static http.proxy.constants.Constants.*;
 
+/**
+ * Класс для обработки сокетов. Читает запрос из сокета
+ * выполняет его, записывает в сокет ответ и закрывает его.
+ */
 public final class SocketHandler implements Runnable {
 
     private CacheManager cm;
@@ -40,12 +44,15 @@ public final class SocketHandler implements Runnable {
     @Override
     public void run() {
         try {
+            /**Создаем экземпляр RequestReader, который сразу же и считает
+             * данные из входного потока (inputStream)*/
             RequestReader requestReader = new RequestReader(is);
             l.log(Logger.Level.INFO, socket, requestReader.getMethod(), requestReader.getUrl(), true, null);
-            //Берем из кэша
+            /** Пытаем взять значение из кэша, если его там нет, то получим null*/
             final Response response = cm.getResponse(requestReader.getUrl());
             if (response != null) {
                 try {
+                    /**Получили ответ, создает StandardCallBack, который запишет ответ в сокет*/
                     new StandardCallback(l, socket, os, true).onResponse(null, response);
                 } catch (IOException e) {
                     l.log(Logger.Level.EXCEPTION, ON_FAILURE + SPACE + e.getMessage());
@@ -56,9 +63,15 @@ public final class SocketHandler implements Runnable {
                     }
                 }
                 /**
-                 * Если возникунт ошибки, связанные с безопасностью, то здесь вместо
+                 * Если ответ из кэша не получен, то выполняем OkHttp запрос
+                 * Отключаем Proxy, чтобы с этого же компьютера можно было использовать
+                 * данную программу в качестве прокси. ставим ограничение на время запроса и ответа
+                 * задаем запрос и в enqueue задаем то, что нужно делать асинхронно
+                 * при получении ответа
+                 *
+                 * !!!Если возникунт ошибки, связанные с безопасностью, то здесь вместо
                  * new OkHttpClient.Builder() вызвать getUnsafeOkHttpClientBuilder()
-                 * из класса http.proxy.ssl.UnsafeOkHttpClient
+                 * из класса http.proxy.ssl.UnsafeOkHttpClient!!!
                  */
             } else new OkHttpClient.Builder()
                     .proxy(Proxy.NO_PROXY)
@@ -68,6 +81,8 @@ public final class SocketHandler implements Runnable {
                     .newCall(requestReader.toRequest())
                     .enqueue(new StandardCallback(l, socket, os, false));
 
+            /** Ловим исключения, которыем могут возникнуть при создании RequestReader
+             * И отправляем клиенту соответвующие заголовки*/
         } catch (RequestTimeoutException | BadRequestException e) {
             l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
             try {
@@ -80,9 +95,12 @@ public final class SocketHandler implements Runnable {
                 os.flush();
                 socket.close();
             } catch (IOException ee) {
+                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                 l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
             }
         } catch (MethodNotAllowedException e) {
+            /** Получили ошибку о том, что метод не поддерживается, сообщаем об этом клиенту и отправляем
+             * в заголовке Allow спиок доступных методов*/
             l.log(Logger.Level.WARNING, socket, e.getMessage() + SPACE + e.getRequestedMethod());
             try {
                 String string = DEFAULT_HTTP_VERSION +
@@ -100,17 +118,23 @@ public final class SocketHandler implements Runnable {
                 os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
                 os.flush();
                 socket.close();
-            } catch (IOException ee) {
+            } catch (IOException ee) {/** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                 l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
             }
         }
     }
 
+    /**
+     * Формирует первую строку заголовка HTTP/1.1. CODE MESSAGE
+     */
     private String firstLine(int code, String message) {
         return DEFAULT_HTTP_VERSION + SPACE + code + SPACE + message + SPACE + CRLF;
     }
 
-
+    /**
+     * Калбэк для асинхронного вызова при получении ответа от сервера
+     * Полученный ответ кэшируем, если надо и отправляем клиенту
+     */
     class StandardCallback implements Callback {
 
         private final Logger l;
@@ -118,6 +142,12 @@ public final class SocketHandler implements Runnable {
         private final OutputStream os;
         private final boolean cached;
 
+        /**
+         * @param logger логгер
+         * @param socket сокет
+         * @param os     outputStream для записи ответа
+         * @param cached если true, значени отправляем клиенту кшированный ответ
+         */
         public StandardCallback(Logger logger, Socket socket, OutputStream os, boolean cached) {
             this.l = logger;
             this.socket = socket;
@@ -125,6 +155,12 @@ public final class SocketHandler implements Runnable {
             this.cached = cached;
         }
 
+        /**
+         * Если при выполнении запроса или получении ответа от сервера, что-то пошло не так
+         *
+         * @param call вызов
+         * @param e    исключение
+         */
         @Override
         public void onFailure(Call call, IOException e) {
             if (e instanceof SocketTimeoutException) {
@@ -134,6 +170,7 @@ public final class SocketHandler implements Runnable {
                     os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
                     os.flush();
                 } catch (IOException ee) {
+                    /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                     l.log(Logger.Level.EXCEPTION, socket, ee.getMessage());
                 }
             } else {
@@ -142,20 +179,37 @@ public final class SocketHandler implements Runnable {
                     os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
                     os.flush();
                 } catch (IOException ee) {
+                    /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                     l.log(Logger.Level.EXCEPTION, socket, ON_FAILURE + SPACE + BAD_REQUEST);
                 }
             }
             try {
                 socket.close();
             } catch (IOException ee) {
+                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                 l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + ee.getMessage());
             }
         }
 
+        /**
+         * Вызывается, когда был получен ответ от сервера
+         *
+         * @param call     вызов
+         * @param response ответ
+         * @throws IOException если что-то пошло не так
+         */
         @Override
         public void onResponse(Call call, Response response) throws IOException {
+            /**
+             * СРАЗУ БЕРЕМ ТЕЛО ЗАПРОСА, ЧТОБЫ МОЖНО БЫЛО И КЭШИРОВАТЬ ЕГО
+             * И ОТПРАВИТЬ КЛИЕНТУ, ИНАЧЕ Response НЕ ПОЗВОЛИТ ОБРАТЬТСЯ К ТЕЛУ
+             * ВТОРОЙ РАЗ
+             */
             byte[] body = response.body().bytes();
             try {
+                /**
+                 * Строим ответ, заполняем заголовки
+                 */
                 String builder = response.protocol().toString() +
                         SPACE +
                         response.code() +
@@ -170,11 +224,14 @@ public final class SocketHandler implements Runnable {
                                 .build()
                                 .toString() +
                         CRLF;
+                /** Записываем заголовки для отправки клиенту*/
                 os.write(builder.getBytes());
 
+                /** Записываем тело ответа*/
                 if (body != null) {
                     os.write(body);
                 }
+                /** Отправляем и закрываем сокет*/
                 os.flush();
                 socket.close();
 
@@ -188,6 +245,7 @@ public final class SocketHandler implements Runnable {
                 }
 
             } catch (IOException e) {
+                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
                 l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
             } finally {
                 socket.close();

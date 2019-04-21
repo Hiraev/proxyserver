@@ -8,6 +8,15 @@ import java.util.TimerTask;
 
 import static http.proxy.constants.Constants.*;
 
+/**
+ * Менеджер для работы с кэшем, всем действия, выполняемые с ним синхронизированы
+ * принимает в конструкторе размер кэша и время хранения в кеше
+ * При инициализации запускает timer.schedule(), который каждые lifetime секунд
+ * проверяет кэш на наличие устаревших значений и удаляет их, если таковые находятся.
+ * Timer Schedule работает в фоне, не мешяю основному потоку.
+ * Все обращения синхронизированы по кэшу, чтобы действия надо кэшем могу выполнять только
+ * один поток.
+ */
 public final class CacheManager {
 
     private long maxSize;
@@ -74,6 +83,22 @@ public final class CacheManager {
         };
     }
 
+    /**
+     * Кладем новое значение в кэш, если раньше его там не было.
+     *
+     * Ответ и тело ответа передаются отдельно, чтобы было
+     * удобнее копировать кэшированный ответ.
+     *
+     * Если в кэше недостатоно места, то будем удалять оттуда
+     * элементы, пока место не появится.
+     *
+     * Если всталяемый файл слишком большой для кеша, то вставка
+     * не произойдет
+     *
+     * @param url адрес
+     * @param response ответ
+     * @param body тело ответа
+     */
     public void put(final String url, final Response response, byte[] body) {
         synchronized (cache) {
             if (cache.contains(url)) return;
@@ -107,6 +132,11 @@ public final class CacheManager {
         }
     }
 
+    /**
+     * Получить кэшированный ответ из кэша
+     * @param url адрес
+     * @return кэшированный ответ
+     */
     public Response getResponse(final String url) {
         synchronized (cache) {
             if (!contains(url)) return null;

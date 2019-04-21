@@ -9,6 +9,19 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Proxy сервер
+ * Хранит в себе ExecutorService с размером 10.
+ * Это значит, что 10 задач могут выполняться параллельно или конкуретно (в
+ * зависимости от количества ядер процессора)
+ * Executor сервис получает на выполнение Runnable, помещает его в очередь
+ * и выполняет, когда один из потоков освобождается
+ *
+ * Здесь используется FixedThreadPool - это значит, что создается фиксированное количество потоков,
+ * которые переиспользуются для выполнения новых задач
+ *
+ * В качестве задачи в нашем случаем выступает SocketHandler, который реализует Runnable
+ */
 public final class ProxyServer {
 
     private final ExecutorService executorService;
