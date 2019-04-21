@@ -1,8 +1,8 @@
 package http.proxy.utils;
 
-import http.proxy.exeptions.BadRequestException;
-import http.proxy.exeptions.RequestTimeoutException;
-import http.proxy.exeptions.MethodNotAllowedException;
+import http.proxy.exceptions.BadRequestException;
+import http.proxy.exceptions.RequestTimeoutException;
+import http.proxy.exceptions.MethodNotAllowedException;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.Request;

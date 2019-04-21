@@ -1,4 +1,4 @@
-package http.proxy.exeptions;
+package http.proxy.exceptions;
 
 import java.net.SocketException;
 

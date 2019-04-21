@@ -1,9 +1,9 @@
 package http.proxy;
 
 import http.proxy.cache.CacheManager;
-import http.proxy.exeptions.BadRequestException;
-import http.proxy.exeptions.MethodNotAllowedException;
-import http.proxy.exeptions.RequestTimeoutException;
+import http.proxy.exceptions.BadRequestException;
+import http.proxy.exceptions.MethodNotAllowedException;
+import http.proxy.exceptions.RequestTimeoutException;
 import http.proxy.logger.Logger;
 import http.proxy.utils.RequestReader;
 import okhttp3.Call;

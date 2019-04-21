@@ -1,4 +1,4 @@
-package http.proxy.exeptions;
+package http.proxy.exceptions;
 
 import static http.proxy.constants.Constants.BAD_REQUEST;
 
