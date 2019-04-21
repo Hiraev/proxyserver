@@ -1,9 +1,9 @@
 package http.proxy.cache;
 
+import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * Класс для сохранение ответов. Ответы оборнуты в ResponseWrapper
@@ -11,27 +11,26 @@ import java.util.concurrent.LinkedBlockingDeque;
  */
 public class Cache {
 
-    private final Map<String, ResponseWrapper> cache = new ConcurrentHashMap<>();
-    private final Deque<String> orderedKeys = new LinkedBlockingDeque<>();
+    private final Map<String, ResponseWrapper> cache = new HashMap<>();
+    private final Deque<String> orderedKeys = new ArrayDeque<>();
 
     private int size;
 
     /**
      * Если responseWrapper валидный кладем его в кэш
-     * @param url url по, которому был получен ответ
+     *
+     * @param url      url по, которому был получен ответ
      * @param response ответ, соответвующий данному url
      */
     void put(final String url, final ResponseWrapper response) {
-        synchronized (orderedKeys) {
-            if (response.isValid()) {
-                orderedKeys.add(url);
-                cache.put(url, response);
-                size += response.length();
-            }
+        if (response.isValid()) {
+            orderedKeys.add(url);
+            cache.put(url, response);
+            size += response.length();
         }
     }
 
-    synchronized boolean contains(final String url) {
+    boolean contains(final String url) {
         return cache.containsKey(url);
     }
 
@@ -44,7 +43,7 @@ public class Cache {
      * @param url адрес
      * @return новый экземпляр ResponseWrapper
      */
-    synchronized ResponseWrapper get(String url) {
+    ResponseWrapper get(String url) {
         return cache.get(url).copy();
     }
 
@@ -52,11 +51,9 @@ public class Cache {
      * @param url
      */
     private void remove(final String url) {
-        synchronized (orderedKeys) {
-            if (cache.containsKey(url)) {
-                size -= cache.get(url).length();
-                cache.remove(url);
-            }
+        if (cache.containsKey(url)) {
+            size -= cache.get(url).length();
+            cache.remove(url);
         }
     }
 
@@ -71,11 +68,9 @@ public class Cache {
      * @return ключ - соответсвующий удаленному элементу
      */
     String removeOldest() {
-        synchronized (orderedKeys) {
-            final String first = orderedKeys.pollFirst();
-            remove(first);
-            return first;
-        }
+        final String first = orderedKeys.pollFirst();
+        remove(first);
+        return first;
     }
 
     /**
@@ -85,20 +80,15 @@ public class Cache {
      * @return время в миллисекундах
      */
     long oldestCreatedTime() {
-        synchronized (orderedKeys) {
-            return get(orderedKeys.getFirst()).getCreatedTime();
-        }
+        return get(orderedKeys.getFirst()).getCreatedTime();
     }
 
-    synchronized boolean isNotEmpty() {
+    boolean isNotEmpty() {
         return !cache.isEmpty();
     }
 
-    synchronized boolean isEmpty() {
+    boolean isEmpty() {
         return cache.isEmpty();
     }
 
-    public Deque<String> getOrderedKeys() {
-        return orderedKeys;
-    }
 }
