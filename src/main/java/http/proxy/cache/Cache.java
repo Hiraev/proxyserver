@@ -5,6 +5,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 
+/**
+ * Класс для сохранение ответов. Ответы оборнуты в ResponseWrapper
+ * для удобной работы с ними.
+ */
 public class Cache {
 
     private final Map<String, ResponseWrapper> cache = new ConcurrentHashMap<>();
@@ -12,6 +16,11 @@ public class Cache {
 
     private int size;
 
+    /**
+     * Если responseWrapper валидный кладем его в кэш
+     * @param url url по, которому был получен ответ
+     * @param response ответ, соответвующий данному url
+     */
     void put(final String url, final ResponseWrapper response) {
         synchronized (orderedKeys) {
             if (response.isValid()) {

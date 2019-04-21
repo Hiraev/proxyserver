@@ -3,6 +3,14 @@ package http.proxy.cache;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
+/**
+ * Обертка над Response, позволяет копировать его
+ * храненит длину и время создания
+ *
+ * Поле valid говорит о том, что обертка была создана успешна,
+ * если во время создания, что-то пошло не так, то
+ * valid будет false
+ */
 public class ResponseWrapper {
 
     private boolean valid = true;
@@ -47,7 +55,13 @@ public class ResponseWrapper {
         return createdTime;
     }
 
-
+    /**
+     * Создает копию
+     * @param response ответ
+     * @param body тело ответа
+     * @return новый экземпляр Response со скопированным телом, либо
+     * null, если что-то пошло не так
+     */
     private Response cloneResponse(Response response, byte[] body) {
         try {
             return new Response.Builder()
