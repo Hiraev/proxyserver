@@ -8,7 +8,6 @@ import http.proxy.logger.Logger;
 import http.proxy.utils.RequestReader;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
 import java.io.IOException;
@@ -20,6 +19,7 @@ import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
 
 import static http.proxy.constants.Constants.*;
+import static http.proxy.ssl.UnsafeOkHttpClient.getUnsafeOkHttpClientBuilder;
 
 /**
  * Класс для обработки сокетов. Читает запрос из сокета
@@ -39,6 +39,21 @@ public final class SocketHandler implements Runnable {
         os = socket.getOutputStream();
         l = logger;
         cm = cacheManager;
+    }
+
+    private void writeResponse(final String string, final byte[] body) {
+        try {
+            os.write(string.getBytes());
+            os.write(CRLF.getBytes());
+            if (body != null) {
+                os.write(body);
+            }
+            os.flush();
+            socket.close();
+        } catch (IOException e) {
+            /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
+            l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
+        }
     }
 
     @Override
@@ -73,7 +88,7 @@ public final class SocketHandler implements Runnable {
                  * new OkHttpClient.Builder() вызвать getUnsafeOkHttpClientBuilder()
                  * из класса http.proxy.ssl.UnsafeOkHttpClient!!!
                  */
-            } else new OkHttpClient.Builder()
+            } else getUnsafeOkHttpClientBuilder()
                     .proxy(Proxy.NO_PROXY)
                     .readTimeout(30, TimeUnit.SECONDS)
                     .callTimeout(30, TimeUnit.SECONDS)
@@ -85,42 +100,30 @@ public final class SocketHandler implements Runnable {
              * И отправляем клиенту соответвующие заголовки*/
         } catch (RequestTimeoutException | BadRequestException e) {
             l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
-            try {
-                if (e instanceof RequestTimeoutException) {
-                    os.write(firstLine(REQUEST_TIMEOUT_CODE, REQUEST_TIMEOUT).getBytes());
-                } else {
-                    os.write(firstLine(BAD_REQUEST_CODE, BAD_REQUEST).getBytes());
-                }
-                os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
-                os.flush();
-                socket.close();
-            } catch (IOException ee) {
-                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
+            StringBuilder resp = new StringBuilder();
+            if (e instanceof RequestTimeoutException) {
+                resp.append(firstLine(REQUEST_TIMEOUT_CODE, REQUEST_TIMEOUT));
+            } else {
+                resp.append(firstLine(BAD_REQUEST_CODE, BAD_REQUEST));
             }
+            resp.append(CONNECTION + HEADER_DELIM + SPACE + CLOSE);
+            writeResponse(resp.toString(), null);
         } catch (MethodNotAllowedException e) {
             /** Получили ошибку о том, что метод не поддерживается, сообщаем об этом клиенту и отправляем
              * в заголовке Allow спиок доступных методов*/
             l.log(Logger.Level.WARNING, socket, e.getMessage() + SPACE + e.getRequestedMethod());
-            try {
-                String string = DEFAULT_HTTP_VERSION +
-                        SPACE +
-                        METHOD_NOT_ALLOWED_CODE +
-                        SPACE +
-                        METHOD_NOT_ALLOWED +
-                        CRLF +
-                        ALLOW +
-                        HEADER_DELIM +
-                        SPACE +
-                        e.getAllowedMethods().toString() +
-                        CRLF;
-                os.write(string.getBytes());
-                os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
-                os.flush();
-                socket.close();
-            } catch (IOException ee) {/** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
-            }
+            String string = DEFAULT_HTTP_VERSION +
+                    SPACE +
+                    METHOD_NOT_ALLOWED_CODE +
+                    SPACE +
+                    METHOD_NOT_ALLOWED +
+                    CRLF +
+                    ALLOW +
+                    HEADER_DELIM +
+                    SPACE +
+                    e.getAllowedMethods().toString() +
+                    CRLF + CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF;
+            writeResponse(string, null);
         }
     }
 
@@ -163,31 +166,15 @@ public final class SocketHandler implements Runnable {
          */
         @Override
         public void onFailure(Call call, IOException e) {
+            l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
             if (e instanceof SocketTimeoutException) {
-                l.log(Logger.Level.EXCEPTION, socket, GATEWAY_TIMEOUT);
-                try {
-                    os.write(firstLine(GATEWAY_TIMEOUT_CODE, GATEWAY_TIMEOUT).getBytes());
-                    os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
-                    os.flush();
-                } catch (IOException ee) {
-                    /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                    l.log(Logger.Level.EXCEPTION, socket, ee.getMessage());
-                }
+                writeResponse(firstLine(GATEWAY_TIMEOUT_CODE, GATEWAY_TIMEOUT) +
+                        CONNECTION + HEADER_DELIM + SPACE + CLOSE, null
+                );
             } else {
-                try {
-                    os.write(firstLine(BAD_REQUEST_CODE, BAD_REQUEST).getBytes());
-                    os.write((CONNECTION + HEADER_DELIM + SPACE + CLOSE + CRLF).getBytes());
-                    os.flush();
-                } catch (IOException ee) {
-                    /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                    l.log(Logger.Level.EXCEPTION, socket, ON_FAILURE + SPACE + BAD_REQUEST);
-                }
-            }
-            try {
-                socket.close();
-            } catch (IOException ee) {
-                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + ee.getMessage());
+                writeResponse(firstLine(BAD_REQUEST_CODE, BAD_REQUEST) +
+                        CONNECTION + HEADER_DELIM + SPACE + CLOSE, null
+                );
             }
         }
 
@@ -206,57 +193,38 @@ public final class SocketHandler implements Runnable {
              * ВТОРОЙ РАЗ
              */
             byte[] body = response.body().bytes();
-            try {
-                /**
-                 * Строим ответ, заполняем заголовки
-                 */
-                String builder = response.protocol().toString() +
-                        SPACE +
-                        response.code() +
-                        SPACE +
-                        response.message() +
-                        LF +
-                        //Убираем Transfer-Encoding, наш прокси его не использует
-                        response
-                                .headers()
-                                .newBuilder()
-                                .removeAll(TRANSFER_ENCODING)
-                                .build()
-                                .toString() +
-                        CRLF;
-                /** Записываем заголовки для отправки клиенту*/
-                os.write(builder.getBytes());
+            /** Строим ответ, заполняем заголовки */
+            String builder = response.protocol().toString() +
+                    SPACE +
+                    response.code() +
+                    SPACE +
+                    response.message() +
+                    LF +
+                    //Убираем Transfer-Encoding, наш прокси его не использует
+                    response
+                            .headers()
+                            .newBuilder()
+                            .removeAll(TRANSFER_ENCODING)
+                            .build()
+                            .toString();
 
-                /** Записываем тело ответа*/
-                if (body != null) {
-                    os.write(body);
+            /** Записываем заголовки для отправки клиенту*/
+            writeResponse(builder, body);
+            if (!cached) {
+                /** Если ответ был кэширован и если он получен методом GET, то кэшируем его*/
+                if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
+                    cm.put(call.request().url().toString(), response, body);
                 }
-                /** Отправляем и закрываем сокет*/
-                os.flush();
-                socket.close();
-
-                if (!cached) {
-                    /** Если ответ был кэширован и если он получен методом GET, то кэшируем его*/
-                    if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
-                        cm.put(call.request().url().toString(), response, body);
-                    }
-                    l.log(Logger.Level.INFO,
-                            socket,
-                            response.request().method(),
-                            response.request().url().toString(),
-                            false,
-                            null
-                    );
-                }
-
-            } catch (IOException e) {
-                /** Если при записи происзошла ошибка (сокет неожиданно закрылся )*/
-                l.log(Logger.Level.EXCEPTION, socket, VERY_BAD_EXCEPTION + SPACE + e.getMessage());
-            } finally {
-                socket.close();
+                l.log(Logger.Level.INFO,
+                        socket,
+                        response.request().method(),
+                        response.request().url().toString(),
+                        false,
+                        null
+                );
             }
+
         }
 
     }
-
 }
