@@ -12,6 +12,5 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.squareup.okhttp3:okhttp:3.14.1'
     implementation group: 'javax.servlet', name: 'javax.servlet-api', version: '3.0.1'
 }
