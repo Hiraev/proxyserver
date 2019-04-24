@@ -13,6 +13,10 @@ import java.util.List;
 
 import static http.proxy.constants.Constants.*;
 
+/**
+ * Считывает данные из входного потока,
+ * это может быть либо запрос, либо ответ
+ */
 public abstract class HttpReader {
 
     protected String firstLine;
@@ -65,6 +69,12 @@ public abstract class HttpReader {
         }
     }
 
+    /**
+     * Если размер входного потока данных заранее не известен, то будет читать его до получения
+     * символа конца потока, которые в форме int равен -1
+     * @param is входной поток
+     * @throws IOException
+     */
     private void readChuncked(InputStream is) throws IOException {
         final List<Byte> chunkedBody = new ArrayList<>();
         byte b;

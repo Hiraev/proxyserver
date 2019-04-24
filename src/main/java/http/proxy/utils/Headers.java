@@ -8,6 +8,9 @@ import java.util.function.BiConsumer;
 
 import static http.proxy.constants.Constants.*;
 
+/**
+ * Собственная реализация класса, аналогичного тому, что бы взят из OkHttp
+ */
 public class Headers {
 
     private List<String> names;

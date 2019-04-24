@@ -72,6 +72,7 @@ public final class Request extends HttpReader {
 
     /**
      * Выполняем execute в ExecutorService, который нам предоставят
+     * CallBack аналогичен тому, что бы взят из OkHttp
      */
     public void execute(ExecutorService service, Callback callback) {
         service.submit(
@@ -101,7 +102,7 @@ public final class Request extends HttpReader {
                                 firstLine[2],
                                 connection.getHeaderFields()
                         );
-
+                        /** Коды больше 299 означают ошибки, поэтому достаем поток с ошибками */
                         if (responseCode > 299) {
                             response.read(connection.getErrorStream());
                         } else {

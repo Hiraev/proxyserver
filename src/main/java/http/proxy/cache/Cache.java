@@ -41,14 +41,14 @@ public class Cache {
      * может запрашивать несколько раз
      *
      * @param url адрес
-     * @return новый экземпляр ResponseWrapper
+     * @return экземпляр Response из кэша
      */
     Response get(String url) {
         return cache.get(url);
     }
 
     /**
-     * @param url
+     * @param url адрес
      */
     private void remove(final String url) {
         if (cache.containsKey(url)) {
