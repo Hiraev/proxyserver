@@ -29,6 +29,7 @@ public final class Constants {
     public static final String TRANSFER_ENCODING = "Transfer-Encoding";
     public static final String CONNECTION = "Connection";
     public static final String ALLOW = "Allow";
+    public static final String CHUNKED = "Chunked";
 
     public static final String CLOSE = "Close";
 

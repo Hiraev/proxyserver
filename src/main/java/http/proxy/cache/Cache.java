@@ -1,5 +1,7 @@
 package http.proxy.cache;
 
+import http.proxy.utils.Response;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -11,7 +13,7 @@ import java.util.Map;
  */
 public class Cache {
 
-    private final Map<String, ResponseWrapper> cache = new HashMap<>();
+    private final Map<String, Response> cache = new HashMap<>();
     private final Deque<String> orderedKeys = new ArrayDeque<>();
 
     private int size;
@@ -22,12 +24,10 @@ public class Cache {
      * @param url      url по, которому был получен ответ
      * @param response ответ, соответвующий данному url
      */
-    void put(final String url, final ResponseWrapper response) {
-        if (response.isValid()) {
+    void put(final String url, final Response response) {
             orderedKeys.add(url);
             cache.put(url, response);
-            size += response.length();
-        }
+            size += response.getContentLength();
     }
 
     boolean contains(final String url) {
@@ -41,18 +41,18 @@ public class Cache {
      * может запрашивать несколько раз
      *
      * @param url адрес
-     * @return новый экземпляр ResponseWrapper
+     * @return экземпляр Response из кэша
      */
-    ResponseWrapper get(String url) {
-        return cache.get(url).copy();
+    Response get(String url) {
+        return cache.get(url);
     }
 
     /**
-     * @param url
+     * @param url адрес
      */
     private void remove(final String url) {
         if (cache.containsKey(url)) {
-            size -= cache.get(url).length();
+            size -= cache.get(url).getContentLength();
             cache.remove(url);
         }
     }

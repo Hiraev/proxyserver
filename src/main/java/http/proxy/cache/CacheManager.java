@@ -1,7 +1,7 @@
 package http.proxy.cache;
 
 import http.proxy.logger.Logger;
-import okhttp3.Response;
+import http.proxy.utils.Response;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -101,25 +101,21 @@ public final class CacheManager {
      *
      * @param url      адрес
      * @param response ответ
-     * @param body     тело ответа
      */
-    public void put(final String url, final Response response, byte[] body) {
+    public void put(final String url, final Response response) {
         synchronized (cache) {
             if (cache.contains(url)) return;
-            ResponseWrapper responseWrapper = new ResponseWrapper(response, body);
-            if (responseWrapper.isValid()) {
-                if (maxSize < responseWrapper.length()) {
-                    if (logger != null)
-                        logger.log(Logger.Level.WARNING, CACHE_TOO_BIG +
-                                SPACE +
-                                responseWrapper.length() +
-                                " bytes"
-                        );
-                    return;
-                }
+            if (maxSize < response.getContentLength()) {
+                if (logger != null)
+                    logger.log(Logger.Level.WARNING, CACHE_TOO_BIG +
+                            SPACE +
+                            response.getContentLength() +
+                            " bytes"
+                    );
+                return;
             }
 
-            while (cache.getSize() + responseWrapper.length() > maxSize) {
+            while (cache.getSize() + response.getContentLength() > maxSize) {
                 final String removedUrl = cache.removeOldest();
                 if (logger != null)
                     logger.log(Logger.Level.INFO, CACHE_NO_SPACE +
@@ -131,11 +127,11 @@ public final class CacheManager {
                             removedUrl
                     );
             }
-            cache.put(url, responseWrapper);
+            cache.put(url, response);
             logger.log(Logger.Level.INFO,
                     CACHE_INSERTED +
                             SPACE +
-                            response.request().url()
+                            response.getUrl()
             );
         }
     }
@@ -150,7 +146,7 @@ public final class CacheManager {
         synchronized (cache) {
             if (!contains(url)) return null;
             logger.log(Logger.Level.INFO, CACHE_RETURNED + SPACE + url);
-            return cache.get(url).getResponse();
+            return cache.get(url);
         }
     }
 

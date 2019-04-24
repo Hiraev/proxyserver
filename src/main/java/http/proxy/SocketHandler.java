@@ -5,21 +5,18 @@ import http.proxy.exceptions.BadRequestException;
 import http.proxy.exceptions.MethodNotAllowedException;
 import http.proxy.exceptions.RequestTimeoutException;
 import http.proxy.logger.Logger;
-import http.proxy.utils.RequestReader;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.Response;
+import http.proxy.utils.Callback;
+import http.proxy.utils.Request;
+import http.proxy.utils.Response;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 
 import static http.proxy.constants.Constants.*;
-import static http.proxy.ssl.UnsafeOkHttpClient.getUnsafeOkHttpClientBuilder;
 
 /**
  * Класс для обработки сокетов. Читает запрос из сокета
@@ -32,13 +29,19 @@ public final class SocketHandler implements Runnable {
     private InputStream is;
     private OutputStream os;
     private Logger l;
+    private ExecutorService es;
 
-    public SocketHandler(final Socket socket, final Logger logger, final CacheManager cacheManager) throws IOException {
+    public SocketHandler(final Socket socket,
+                         final Logger logger,
+                         final CacheManager cacheManager,
+                         final ExecutorService executorService
+    ) throws IOException {
         this.socket = socket;
         is = socket.getInputStream();
         os = socket.getOutputStream();
         l = logger;
         cm = cacheManager;
+        es = executorService;
     }
 
     private void writeResponse(final String string, final byte[] body) {
@@ -59,52 +62,29 @@ public final class SocketHandler implements Runnable {
     @Override
     public void run() {
         try {
-            /**Создаем экземпляр RequestReader, который сразу же и считает
+            /**Создаем экземпляр Request, который сразу же и считает
              * данные из входного потока (inputStream)*/
-            RequestReader requestReader = new RequestReader(is);
-            l.log(Logger.Level.INFO, socket, requestReader.getMethod(), requestReader.getUrl(), true, null);
+            Request request = new Request();
+            request.read(is);
+            l.log(Logger.Level.INFO, socket, request.getMethod(), request.getUrl(), true, null);
             /** Пытаем взять значение из кэша, если его там нет, то получим null*/
-            final Response response = cm.getResponse(requestReader.getUrl());
+            final Response response = cm.getResponse(request.getUrl());
             if (response != null) {
-                try {
-                    /**Получили ответ, создает StandardCallBack, который запишет ответ в сокет*/
-                    new StandardCallback(l, socket, os, true).onResponse(null, response);
-                } catch (IOException e) {
-                    l.log(Logger.Level.EXCEPTION, ON_FAILURE + SPACE + e.getMessage());
-                    try {
-                        socket.close();
-                    } catch (IOException ee) {
-                        l.log(Logger.Level.EXCEPTION, VERY_BAD_EXCEPTION + SPACE + ee.getMessage());
-                    }
-                }
-                /**
-                 * Если ответ из кэша не получен, то выполняем OkHttp запрос
-                 * Отключаем Proxy, чтобы с этого же компьютера можно было использовать
-                 * данную программу в качестве прокси. ставим ограничение на время запроса и ответа
-                 * задаем запрос и в enqueue задаем то, что нужно делать асинхронно
-                 * при получении ответа
-                 *
-                 * !!!Если возникунт ошибки, связанные с безопасностью, то здесь вместо
-                 * new OkHttpClient.Builder() вызвать getUnsafeOkHttpClientBuilder()
-                 * из класса http.proxy.ssl.UnsafeOkHttpClient!!!
-                 */
-            } else getUnsafeOkHttpClientBuilder()
-                    .proxy(Proxy.NO_PROXY)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .callTimeout(30, TimeUnit.SECONDS)
-                    .build()
-                    .newCall(requestReader.toRequest())
-                    .enqueue(new StandardCallback(l, socket, os, false));
+                /**Получили ответ, создает StandardCallBack, который запишет ответ в сокет*/
+                new StandardCallback(l, socket, os, true).onSuccess(null, response);
 
-            /** Ловим исключения, которыем могут возникнуть при создании RequestReader
+            } else request.execute(es, new StandardCallback(l, socket, os, false));
+
+            /** Ловим исключения, которыем могут возникнуть при создании Request
              * И отправляем клиенту соответвующие заголовки*/
         } catch (RequestTimeoutException | BadRequestException e) {
-            l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
             StringBuilder resp = new StringBuilder();
             if (e instanceof RequestTimeoutException) {
                 resp.append(firstLine(REQUEST_TIMEOUT_CODE, REQUEST_TIMEOUT));
+                l.log(Logger.Level.EXCEPTION, socket, REQUEST_TIMEOUT + SPACE + e.getMessage());
             } else {
                 resp.append(firstLine(BAD_REQUEST_CODE, BAD_REQUEST));
+                l.log(Logger.Level.EXCEPTION, socket, BAD_REQUEST + SPACE + e.getMessage());
             }
             resp.append(CONNECTION + HEADER_DELIM + SPACE + CLOSE);
             writeResponse(resp.toString(), null);
@@ -161,12 +141,12 @@ public final class SocketHandler implements Runnable {
         /**
          * Если при выполнении запроса или получении ответа от сервера, что-то пошло не так
          *
-         * @param call вызов
-         * @param e    исключение
+         * @param request вызов
+         * @param e       исключение
          */
         @Override
-        public void onFailure(Call call, IOException e) {
-            l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
+        public void onFailure(Request request, Exception e) {
+            l.log(Logger.Level.EXCEPTION, socket, e.getClass().getCanonicalName() + SPACE + e.getMessage());
             if (e instanceof SocketTimeoutException) {
                 writeResponse(firstLine(GATEWAY_TIMEOUT_CODE, GATEWAY_TIMEOUT) +
                         CONNECTION + HEADER_DELIM + SPACE + CLOSE, null
@@ -181,50 +161,36 @@ public final class SocketHandler implements Runnable {
         /**
          * Вызывается, когда был получен ответ от сервера
          *
-         * @param call     вызов
+         * @param request  вызов
          * @param response ответ
          * @throws IOException если что-то пошло не так
          */
         @Override
-        public void onResponse(Call call, Response response) throws IOException {
-            /**
-             * СРАЗУ БЕРЕМ ТЕЛО ЗАПРОСА, ЧТОБЫ МОЖНО БЫЛО И КЭШИРОВАТЬ ЕГО
-             * И ОТПРАВИТЬ КЛИЕНТУ, ИНАЧЕ Response НЕ ПОЗВОЛИТ ОБРАТЬТСЯ К ТЕЛУ
-             * ВТОРОЙ РАЗ
-             */
-            byte[] body = response.body().bytes();
+        public void onSuccess(Request request, Response response) {
             /** Строим ответ, заполняем заголовки */
-            String builder = response.protocol().toString() +
+            String builder = response.getProtocol() +
                     SPACE +
-                    response.code() +
+                    response.getCode() +
                     SPACE +
-                    response.message() +
-                    LF +
-                    //Убираем Transfer-Encoding, наш прокси его не использует
-                    response
-                            .headers()
-                            .newBuilder()
-                            .removeAll(TRANSFER_ENCODING)
-                            .build()
-                            .toString();
+                    response.getMessage() +
+                    CRLF +
+                    response.getHeaders();
 
             /** Записываем заголовки для отправки клиенту*/
-            writeResponse(builder, body);
+            writeResponse(builder, response.getBody());
             if (!cached) {
                 /** Если ответ был кэширован и если он получен методом GET, то кэшируем его*/
-                if (GET_METHOD.equalsIgnoreCase(response.request().method())) {
-                    cm.put(call.request().url().toString(), response, body);
+                if (GET_METHOD.equalsIgnoreCase(request.getMethod())) {
+                    cm.put(request.getUrl(), response);
                 }
                 l.log(Logger.Level.INFO,
                         socket,
-                        response.request().method(),
-                        response.request().url().toString(),
+                        request.getMethod(),
+                        request.getUrl(),
                         false,
                         null
                 );
             }
-
         }
-
     }
 }
