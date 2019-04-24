@@ -146,7 +146,7 @@ public final class SocketHandler implements Runnable {
          */
         @Override
         public void onFailure(Request request, Exception e) {
-            l.log(Logger.Level.EXCEPTION, socket, e.getMessage());
+            l.log(Logger.Level.EXCEPTION, socket, e.getClass().getCanonicalName() + SPACE + e.getMessage());
             if (e instanceof SocketTimeoutException) {
                 writeResponse(firstLine(GATEWAY_TIMEOUT_CODE, GATEWAY_TIMEOUT) +
                         CONNECTION + HEADER_DELIM + SPACE + CLOSE, null
