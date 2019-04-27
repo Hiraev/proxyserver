@@ -15,6 +15,7 @@ public final class ProxyServerPropertiesReader {
     private int port;
     private int lifetime;
     private int cacheSize;
+    private String logFile;
     private final File file;
 
     public ProxyServerPropertiesReader(final String path) {
@@ -29,6 +30,8 @@ public final class ProxyServerPropertiesReader {
             cacheSize = Integer.valueOf(properties.getProperty("cache_size"));
             lifetime = Integer.valueOf(properties.getProperty("lifetime"));
             port = Integer.valueOf(properties.getProperty("port"));
+            logFile = properties.getProperty("log_file");
+
         } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
             System.exit(1);
@@ -47,4 +50,7 @@ public final class ProxyServerPropertiesReader {
         return cacheSize;
     }
 
+    public String getLogFile() {
+        return logFile;
+    }
 }
