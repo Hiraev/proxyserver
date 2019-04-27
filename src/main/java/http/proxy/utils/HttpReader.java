@@ -23,12 +23,14 @@ public abstract class HttpReader {
     protected Headers headers;
     private int contentLength = -1;
     private byte[] body;
+    private boolean isRequest = false;
 
     protected void readInputStream(InputStream is) throws IOException, BadSyntaxException {
         if (is == null) return;
         final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
         //Если headers не null, значит наследники, которые реализут этот класс уже прочитали их
         if (headers == null) {
+            isRequest = true;
             final List<String> lines = new ArrayList<>();
 
             /**Читаем строчки до пустой строки
@@ -57,13 +59,17 @@ public abstract class HttpReader {
             /** Считываем только contentLength символов */
             body = new byte[contentLength];
             while (i < contentLength) {
-                body[i++] = (byte) is.read();
+                if (isRequest) {
+                    body[i++] = (byte) bufferedReader.read();
+                } else {
+                    body[i++] = (byte) is.read();
+                }
             }
         }
         if (CHUNKED.equalsIgnoreCase(headers.get(TRANSFER_ENCODING))) {
             //Удялем информацию о чанках
             headers.remove(TRANSFER_ENCODING);
-            readChuncked(is);
+            readChuncked(is, bufferedReader);
             //Записыаем информацию о размере
             headers.add(CONTENT_LENGTH, String.valueOf(body.length));
         }
@@ -72,14 +78,21 @@ public abstract class HttpReader {
     /**
      * Если размер входного потока данных заранее не известен, то будет читать его до получения
      * символа конца потока, которые в форме int равен -1
+     *
      * @param is входной поток
      * @throws IOException
      */
-    private void readChuncked(InputStream is) throws IOException {
+    private void readChuncked(InputStream is, BufferedReader br) throws IOException {
         final List<Byte> chunkedBody = new ArrayList<>();
         byte b;
-        while ((b = (byte) is.read()) != -1) {
-            chunkedBody.add(b);
+        if (isRequest) {
+            while ((b = (byte) br.read()) != -1) {
+                chunkedBody.add(b);
+            }
+        } else {
+            while ((b = (byte) is.read()) != -1) {
+                chunkedBody.add(b);
+            }
         }
         body = new byte[chunkedBody.size()];
         //Копируем считанное тело к себе.

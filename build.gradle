@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'proxyserver'
-version '1.0-SNAPSHOT'
+version '1.0.0'
 
 sourceCompatibility = 1.8
 
@@ -13,4 +13,14 @@ repositories {
 
 dependencies {
     implementation group: 'javax.servlet', name: 'javax.servlet-api', version: '3.0.1'
+}
+
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example', 'Implementation-Version': version, 'Main-Class': 'http.proxy.ServerRunner'
+    }
+    baseName = project.name
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }

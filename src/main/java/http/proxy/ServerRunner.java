@@ -1,5 +1,6 @@
 package http.proxy;
 
+import http.proxy.logger.FileOutLogger;
 import http.proxy.logger.Logger;
 import http.proxy.logger.STDOutLogger;
 import http.proxy.utils.ProxyServerPropertiesReader;
@@ -13,8 +14,28 @@ public final class ServerRunner {
             throw new IllegalArgumentException("You have to specify the path to the configuration file");
 
         final ProxyServerPropertiesReader props = new ProxyServerPropertiesReader(args[0]);
-        final Logger logger = new STDOutLogger();
+        Logger logger;
 
+        /** Если указан путь к файлу лога, то используем логер в файл*/
+        if (props.getLogFile() != null) {
+            try {
+                logger = new FileOutLogger(props.getLogFile());
+                System.out.println();
+            } catch (IOException e) {
+                logger = new STDOutLogger();
+                logger.log(Logger.Level.WARNING, "Can't create FileOutLogger because of " + e.getMessage());
+            }
+        } else {
+            logger = new STDOutLogger();
+        }
+
+        logger.log(Logger.Level.INFO, "Server started on port: " + props.getPort());
+        logger.log(Logger.Level.INFO, "Cache lifetime: " +
+                props.getLifetime() +
+                " seconds, cache size " +
+                props.getCacheSize() +
+                " bytes"
+        );
         try {
             final ProxyServer proxyServer = new ProxyServer(
                     props.getPort(),
