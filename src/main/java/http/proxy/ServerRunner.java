@@ -14,7 +14,13 @@ public final class ServerRunner {
 
         final ProxyServerPropertiesReader props = new ProxyServerPropertiesReader(args[0]);
         final Logger logger = new STDOutLogger();
-
+        logger.log(Logger.Level.INFO, "Server started on port: " + props.getPort());
+        logger.log(Logger.Level.INFO, "Cache lifetime: " +
+                props.getLifetime() +
+                " seconds, cache size " +
+                props.getCacheSize() +
+                " bytes"
+        );
         try {
             final ProxyServer proxyServer = new ProxyServer(
                     props.getPort(),
