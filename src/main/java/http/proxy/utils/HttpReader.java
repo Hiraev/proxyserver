@@ -26,13 +26,11 @@ public abstract class HttpReader {
     protected byte[] body;
     //Нужно ли читать тело
     protected boolean readBody = true;
-    private BufferedReader bufferedReader;
 
 
     protected void readTopLine(InputStream is) throws IOException {
         if (is == null) return;
-        bufferedReader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-        firstLine = bufferedReader.readLine();
+        firstLine = new String(readLine(is));
     }
 
     protected void readHeaders(InputStream is) throws IOException, BadSyntaxException {
@@ -40,9 +38,9 @@ public abstract class HttpReader {
         final List<String> lines = new ArrayList<>();
         /**Читаем строчки до пустой строки
          * Пустая строка является разделителем между заголовка и телом запроса */
-        String line;
-        while (!(line = bufferedReader.readLine()).isEmpty()) {
-            lines.add(line);
+        byte[] line;
+        while ((line = readLine(is)).length > 0) {
+            lines.add(new String(line));
         }
         final Iterator<String> iterator = lines.iterator();
         headers = new Headers();
@@ -82,15 +80,21 @@ public abstract class HttpReader {
      * @throws IOException
      */
     private void readChuncked(InputStream is) throws IOException {
-        final List<Byte> chunkedBody = new ArrayList<>();
-        byte b;
-        while ((b = (byte) is.read()) != -1) {
-            chunkedBody.add(b);
-        }
-        body = new byte[chunkedBody.size()];
-        //Копируем считанное тело к себе.
-        for (int i = 0; i < chunkedBody.size(); i++) {
-            body[i] = chunkedBody.get(i);
+        int chunkSize = -1;
+        int allSize = 0;
+        List<Byte> buff = new ArrayList<>();
+        do {
+            String stringSize = new String(readLine(is));
+            chunkSize = (stringSize.isEmpty()) ? 0 : Integer.valueOf(stringSize, 16);
+            allSize += chunkSize;
+            for (int i = 0; i < chunkSize; i++) {
+                buff.add((byte) is.read());
+            }
+
+        } while (chunkSize != 0);
+        body = new byte[allSize];
+        for (int i = 0; i < buff.size(); i++) {
+            body[i] = buff.get(i);
         }
     }
 
@@ -129,4 +133,24 @@ public abstract class HttpReader {
         return body;
     }
 
+    /**
+     * Для заголовков!
+     *
+     * @param is
+     * @return
+     * @throws IOException
+     */
+    private byte[] readLine(InputStream is) throws IOException {
+        final List<Byte> buff = new ArrayList<>();
+        byte b;
+        while ((b = (byte) is.read()) != '\n') {
+            buff.add(b);
+        }
+        if (buff.get(buff.size() - 1) == '\r') buff.remove(buff.size() - 1);
+        byte[] buffArray = new byte[buff.size()];
+        for (int i = 0; i < buff.size(); i++) {
+            buffArray[i] = buff.get(i);
+        }
+        return buffArray;
+    }
 }
