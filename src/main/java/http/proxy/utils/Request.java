@@ -104,7 +104,7 @@ public final class Request extends HttpReader {
                         if (getBody() != null) os.write(getBody());
                         os.flush();
 
-                        final Response response = new Response(url);
+                        final Response response = new Response(this);
                         response.read(is);
                         socket.close();
                         {

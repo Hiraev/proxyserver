@@ -5,6 +5,7 @@ import http.proxy.exceptions.BadRequestException;
 import java.io.InputStream;
 import java.util.Arrays;
 
+import static http.proxy.constants.Constants.HEAD_METHOD;
 import static http.proxy.constants.Constants.SPACE;
 
 public final class Response extends HttpReader {
@@ -13,10 +14,10 @@ public final class Response extends HttpReader {
     private int code;
     private String message;
     private long createdTime;
-    private String url;
+    private Request request;
 
-    public Response(String url) {
-        this.url = url;
+    public Response(Request request) {
+        this.request = request;
     }
 
     @Override
@@ -29,7 +30,12 @@ public final class Response extends HttpReader {
         code = Integer.valueOf(s[1]);
         message = String.join(SPACE, Arrays.copyOfRange(s, 2, s.length));
 
-        if (Arrays.asList(201, 301, 302, 303, 307, 308).contains(code)) {
+        //Если ответ содержит редирект или это ответ на метод HEAD, то не читаем
+        //тело
+        if (
+                Arrays.asList(201, 301, 302, 303, 307, 308).contains(code)
+                        || HEAD_METHOD.equalsIgnoreCase(request.getMethod())
+        ) {
             readBody = false;
         }
         super.readHeaders(is);
@@ -53,6 +59,6 @@ public final class Response extends HttpReader {
     }
 
     public String getUrl() {
-        return url;
+        return request.getUrl();
     }
 }
