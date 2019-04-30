@@ -2,11 +2,8 @@ package http.proxy.utils;
 
 import http.proxy.exceptions.BadSyntaxException;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -85,12 +82,15 @@ public abstract class HttpReader {
         List<Byte> buff = new ArrayList<>();
         do {
             String stringSize = new String(readLine(is));
-            chunkSize = (stringSize.isEmpty()) ? 0 : Integer.valueOf(stringSize, 16);
+            chunkSize = Integer.valueOf(stringSize, 16);
             allSize += chunkSize;
             for (int i = 0; i < chunkSize; i++) {
                 buff.add((byte) is.read());
             }
-
+            //Два символа /r/n (должны следовать после каждого блока)
+            char r = (char) is.read();
+            char n = (char) is.read();
+            if (r != '\r' || n != '\n') throw new IOException("Undefined format of chunked data");
         } while (chunkSize != 0);
         body = new byte[allSize];
         for (int i = 0; i < buff.size(); i++) {
@@ -134,11 +134,11 @@ public abstract class HttpReader {
     }
 
     /**
-     * Для заголовков!
-     *
-     * @param is
-     * @return
-     * @throws IOException
+     * Читает строки до символа \n.
+     * Удаляет \r, если он был перед \n.
+     * @param is входяший поток
+     * @return прочитанные символы без \r\n
+     * @throws IOException если что-то пошло не так
      */
     private byte[] readLine(InputStream is) throws IOException {
         final List<Byte> buff = new ArrayList<>();
