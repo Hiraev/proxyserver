@@ -83,7 +83,6 @@ public final class Request extends HttpReader {
         service.submit(
                 () -> {
                     try {
-//                        //TODO Здесь получаем Gateway Timeout
                         Socket socket = new Socket(Proxy.NO_PROXY);
                         String host = new URL(url).getHost();
 
@@ -94,7 +93,6 @@ public final class Request extends HttpReader {
                                 ),
                                 30000
                         );
-
 
                         final InputStream is = socket.getInputStream();
                         final OutputStream os = socket.getOutputStream();
@@ -116,33 +114,4 @@ public final class Request extends HttpReader {
         );
     }
 
-    private void redirect(ExecutorService service, Callback callback, Response response) {
-        try {
-            String host = new URL(url).getHost();
-            String protocol = new URL(url).getProtocol();
-            Request request = new Request();
-            request.method = method;
-            request.protocol = protocol;
-            request.body = getBody();
-            request.headers = new Headers();
-            headers.forEach((a, b) -> headers.add(a, b));
-            request.headers.remove("Referer");
-            request.headers.add("Referer", url);
-
-            final String location = response.getHeaders().get("Location");
-            if (location.startsWith("http://") || location.startsWith("https://")) {
-                url = location;
-            } else if (location.startsWith("https")) {
-                url = url.replaceFirst("http", "https");
-            } else {
-                url = protocol + "://" + host;
-                if (!location.startsWith("/")) {
-                    url += "/";
-                }
-                url += location;
-            }
-            execute(service, callback);
-        } catch (IOException e) {
-        }
-    }
 }
