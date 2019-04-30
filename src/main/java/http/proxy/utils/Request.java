@@ -83,16 +83,12 @@ public final class Request extends HttpReader {
         service.submit(
                 () -> {
                     try {
-                        Socket socket = new Socket(Proxy.NO_PROXY);
-                        String host = new URL(url).getHost();
+                        final Socket socket = new Socket(Proxy.NO_PROXY);
+                        final String host = new URL(url).getHost();
 
-                        socket.connect(
-                                new InetSocketAddress(
-                                        InetAddress.getByName(host),
-                                        80
-                                ),
-                                30000
-                        );
+                        final InetSocketAddress inetAddress = new InetSocketAddress(InetAddress.getByName(host), 80);
+
+                        socket.connect(inetAddress, 30000);
 
                         final InputStream is = socket.getInputStream();
                         final OutputStream os = socket.getOutputStream();
