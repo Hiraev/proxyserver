@@ -7,9 +7,8 @@ import http.proxy.exceptions.RequestTimeoutException;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.Proxy;
-import java.net.URL;
+import java.io.OutputStream;
+import java.net.*;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 
@@ -40,16 +39,22 @@ public final class Request extends HttpReader {
             throws RequestTimeoutException, MethodNotAllowedException, BadRequestException {
         try {
             //Заставляем родительский класс читать входной поток
-            super.readInputStream(is);
+            super.readTopLine(is);
             //Первая строка содержит метод, запрос и версию протокола
             final String[] s = getFirstLine().split(SPACE);
-            if (s.length != 3) throw new BadRequestException();
+            if (s.length != 3) {
+                System.out.println(Arrays.toString(s));
+                throw new BadRequestException();
+            }
             method = s[0];
             url = s[1];
             protocol = s[2];
-            if (!Arrays.asList(GET_METHOD, HEAD_METHOD, POST_METHOD).contains(method))
-                throw new MethodNotAllowedException(method);
 
+            if (!Arrays.asList(GET_METHOD, HEAD_METHOD, POST_METHOD).contains(method)) {
+                throw new MethodNotAllowedException(method);
+            }
+
+            super.readHeaders(is);
         } catch (IOException e) {
             throw new RequestTimeoutException();
         } catch (BadSyntaxException e) {
@@ -79,40 +84,65 @@ public final class Request extends HttpReader {
                 () -> {
                     try {
 //                        //TODO Здесь получаем Gateway Timeout
-                        URL urlObject = new URL(url);
-                        HttpURLConnection.setFollowRedirects(true);
-                        HttpURLConnection connection = (HttpURLConnection) urlObject.openConnection(Proxy.NO_PROXY);
-                        connection.setRequestMethod(method);
-                        connection.setUseCaches(false);
-                        getHeaders().forEach(connection::addRequestProperty);
-                        connection.setReadTimeout(10 * 1000);
-                        connection.setConnectTimeout(10 * 1000);
-                        if (getContentLength() > 0) {
-                            connection.setDoOutput(true);
-                            connection.getOutputStream().write(getBody());
-                        }
+                        Socket socket = new Socket(Proxy.NO_PROXY);
+                        String host = new URL(url).getHost();
 
-                        int responseCode = connection.getResponseCode();
-
-                        String[] firstLine = connection.getHeaderField(null).split(SPACE);
-                        Response response = new Response(
-                                url,
-                                firstLine[0],
-                                firstLine[1],
-                                firstLine[2],
-                                connection.getHeaderFields()
+                        socket.connect(
+                                new InetSocketAddress(
+                                        InetAddress.getByName(host),
+                                        80
+                                ),
+                                30000
                         );
-                        /** Коды больше 299 означают ошибки, поэтому достаем поток с ошибками */
-                        if (responseCode > 299) {
-                            response.read(connection.getErrorStream());
-                        } else {
-                            response.read(connection.getInputStream());
+
+
+                        final InputStream is = socket.getInputStream();
+                        final OutputStream os = socket.getOutputStream();
+
+                        os.write(toString().getBytes());
+                        if (getBody() != null) os.write(getBody());
+                        os.flush();
+
+                        final Response response = new Response(url);
+                        response.read(is);
+                        socket.close();
+                        {
+                            callback.onSuccess(this, response);
                         }
-                        callback.onSuccess(this, response);
                     } catch (Exception e) {
                         callback.onFailure(this, e);
                     }
                 }
         );
+    }
+
+    private void redirect(ExecutorService service, Callback callback, Response response) {
+        try {
+            String host = new URL(url).getHost();
+            String protocol = new URL(url).getProtocol();
+            Request request = new Request();
+            request.method = method;
+            request.protocol = protocol;
+            request.body = getBody();
+            request.headers = new Headers();
+            headers.forEach((a, b) -> headers.add(a, b));
+            request.headers.remove("Referer");
+            request.headers.add("Referer", url);
+
+            final String location = response.getHeaders().get("Location");
+            if (location.startsWith("http://") || location.startsWith("https://")) {
+                url = location;
+            } else if (location.startsWith("https")) {
+                url = url.replaceFirst("http", "https");
+            } else {
+                url = protocol + "://" + host;
+                if (!location.startsWith("/")) {
+                    url += "/";
+                }
+                url += location;
+            }
+            execute(service, callback);
+        } catch (IOException e) {
+        }
     }
 }

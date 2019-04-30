@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,54 +23,52 @@ public abstract class HttpReader {
     protected String firstLine;
     protected Headers headers;
     private int contentLength = -1;
-    private byte[] body;
-    private boolean isRequest = false;
+    protected byte[] body;
+    //Нужно ли читать тело
+    protected boolean readBody = true;
+    private BufferedReader bufferedReader;
 
-    protected void readInputStream(InputStream is) throws IOException, BadSyntaxException {
+
+    protected void readTopLine(InputStream is) throws IOException {
         if (is == null) return;
-        final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-        //Если headers не null, значит наследники, которые реализут этот класс уже прочитали их
-        if (headers == null) {
-            isRequest = true;
-            final List<String> lines = new ArrayList<>();
+        bufferedReader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+        firstLine = bufferedReader.readLine();
+    }
 
-            /**Читаем строчки до пустой строки
-             * Пустая строка является разделителем между заголовка и телом запроса */
-            String line;
-            while (!(line = bufferedReader.readLine()).isEmpty()) {
-                lines.add(line);
+    protected void readHeaders(InputStream is) throws IOException, BadSyntaxException {
+        if (firstLine == null) throw new IllegalStateException();
+        final List<String> lines = new ArrayList<>();
+        /**Читаем строчки до пустой строки
+         * Пустая строка является разделителем между заголовка и телом запроса */
+        String line;
+        while (!(line = bufferedReader.readLine()).isEmpty()) {
+            lines.add(line);
+        }
+        final Iterator<String> iterator = lines.iterator();
+        headers = new Headers();
+        while (iterator.hasNext()) {
+            String[] header = iterator.next().split(HEADER_DELIM, 2);
+            if (header.length < 2) {
+                System.out.println(Arrays.toString(header));
+                throw new BadSyntaxException();
             }
-
-            final Iterator<String> iterator = lines.iterator();
-            firstLine = iterator.next();
-
-            headers = new Headers();
-            while (iterator.hasNext()) {
-                String[] header = iterator.next().split(HEADER_DELIM);
-                if (header.length < 2) throw new BadSyntaxException();
-                headers.add(header[0].trim(), header[1].trim());
-            }
+            headers.add(header[0].trim(), String.join(HEADER_DELIM, Arrays.copyOfRange(header, 1, header.length)).trim());
         }
 
         final String contentLengthString = headers.get(CONTENT_LENGTH);
         contentLength = (contentLengthString == null) ? 0 : Integer.valueOf(contentLengthString);
 
-        if (contentLength > 0) {
+        if (contentLength > 0 && readBody) {
             int i = 0;
             /** Считываем только contentLength символов */
             body = new byte[contentLength];
             while (i < contentLength) {
-                if (isRequest) {
-                    body[i++] = (byte) bufferedReader.read();
-                } else {
-                    body[i++] = (byte) is.read();
-                }
+                body[i++] = (byte) is.read();
             }
-        }
-        if (CHUNKED.equalsIgnoreCase(headers.get(TRANSFER_ENCODING))) {
+        } else if (CHUNKED.equalsIgnoreCase(headers.get(TRANSFER_ENCODING)) && readBody) {
             //Удялем информацию о чанках
             headers.remove(TRANSFER_ENCODING);
-            readChuncked(is, bufferedReader);
+            readChuncked(is);
             //Записыаем информацию о размере
             headers.add(CONTENT_LENGTH, String.valueOf(body.length));
         }
@@ -82,17 +81,11 @@ public abstract class HttpReader {
      * @param is входной поток
      * @throws IOException
      */
-    private void readChuncked(InputStream is, BufferedReader br) throws IOException {
+    private void readChuncked(InputStream is) throws IOException {
         final List<Byte> chunkedBody = new ArrayList<>();
         byte b;
-        if (isRequest) {
-            while ((b = (byte) br.read()) != -1) {
-                chunkedBody.add(b);
-            }
-        } else {
-            while ((b = (byte) is.read()) != -1) {
-                chunkedBody.add(b);
-            }
+        while ((b = (byte) is.read()) != -1) {
+            chunkedBody.add(b);
         }
         body = new byte[chunkedBody.size()];
         //Копируем считанное тело к себе.
@@ -135,4 +128,5 @@ public abstract class HttpReader {
     public byte[] getBody() {
         return body;
     }
+
 }
