@@ -84,9 +84,16 @@ public final class Request extends HttpReader {
                 () -> {
                     try {
                         final Socket socket = new Socket(Proxy.NO_PROXY);
-                        final String host = new URL(url).getHost();
+                        final URL urlObj = new URL(url);
+                        final String host = urlObj.getHost();
+                        //Смотрим какой пор в запросе. Если он не задан, то ставим 80
+                        int port = urlObj.getPort();
+                        if (port == -1) port = 80;
 
-                        final InetSocketAddress inetAddress = new InetSocketAddress(InetAddress.getByName(host), 80);
+                        final InetSocketAddress inetAddress = new InetSocketAddress(
+                                InetAddress.getByName(host),
+                                port
+                        );
 
                         socket.connect(inetAddress, 30000);
 
