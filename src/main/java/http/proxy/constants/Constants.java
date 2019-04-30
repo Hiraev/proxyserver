@@ -11,7 +11,6 @@ public final class Constants {
     public static final String VERY_BAD_CACHE_EXCEPTION = "Caught EXCEPTION when clearing the cache";
 
     public static final String VERY_BAD_EXCEPTION = "Caught an exception when trying to report another exception";
-    public static final String ON_FAILURE = "On failure";
 
     public static final String DEFAULT_HTTP_VERSION = "HTTP/1.1";
 
@@ -25,7 +24,6 @@ public final class Constants {
     public static final String METHOD_NOT_ALLOWED = "Method Not Allowed";
 
     public static final String CONTENT_LENGTH = "Content-Length";
-    public static final String CONTENT_TYPE = "Content-Type";
     public static final String TRANSFER_ENCODING = "Transfer-Encoding";
     public static final String CONNECTION = "Connection";
     public static final String ALLOW = "Allow";
