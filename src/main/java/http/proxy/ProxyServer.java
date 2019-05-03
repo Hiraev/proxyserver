@@ -33,7 +33,7 @@ public final class ProxyServer {
 
     ProxyServer(final int port, final int cacheSize, final int lifetime, final Logger logger) throws IOException {
         executorService = Executors.newFixedThreadPool(10);
-        onResponseExecutorService = Executors.newFixedThreadPool(5);
+        onResponseExecutorService = Executors.newFixedThreadPool(10);
         cacheManager = new CacheManager(cacheSize, lifetime);
         serverSocket = new ServerSocket(port);
         this.logger = logger;

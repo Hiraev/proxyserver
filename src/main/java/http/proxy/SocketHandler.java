@@ -47,7 +47,6 @@ public final class SocketHandler implements Runnable {
     private void writeResponse(final String string, final byte[] body) {
         try {
             os.write(string.getBytes());
-            os.write(CRLF.getBytes());
             if (body != null) {
                 os.write(body);
             }
@@ -167,17 +166,8 @@ public final class SocketHandler implements Runnable {
          */
         @Override
         public void onSuccess(Request request, Response response) {
-            /** Строим ответ, заполняем заголовки */
-            String builder = response.getProtocol() +
-                    SPACE +
-                    response.getCode() +
-                    SPACE +
-                    response.getMessage() +
-                    CRLF +
-                    response.getHeaders();
-
             /** Записываем заголовки для отправки клиенту*/
-            writeResponse(builder, response.getBody());
+            writeResponse(response.toString(), response.getBody());
             if (!cached) {
                 /** Если ответ был кэширован и если он получен методом GET, то кэшируем его*/
                 if (GET_METHOD.equalsIgnoreCase(request.getMethod())) {

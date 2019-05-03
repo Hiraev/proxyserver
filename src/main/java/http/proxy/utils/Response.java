@@ -1,8 +1,12 @@
 package http.proxy.utils;
 
+import http.proxy.exceptions.BadRequestException;
+
 import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
+import java.util.Arrays;
+
+import static http.proxy.constants.Constants.HEAD_METHOD;
+import static http.proxy.constants.Constants.SPACE;
 
 public final class Response extends HttpReader {
 
@@ -10,22 +14,31 @@ public final class Response extends HttpReader {
     private int code;
     private String message;
     private long createdTime;
-    private String url;
+    private Request request;
 
-    public Response(String url, String protocol, String code, String message, Map<String, List<String>> headers) {
-        this.url = url;
-        this.protocol = protocol;
-        this.code = Integer.parseInt(code);
-        this.message = message;
-        super.headers = new Headers(headers);
-        firstLine = protocol + " " + code + " " + message;
+    public Response(Request request) {
+        this.request = request;
     }
 
     @Override
     public void read(InputStream is) throws Exception {
-        //TODO Bad Gateway
-        super.readInputStream(is);
+        super.readTopLine(is);
         createdTime = System.currentTimeMillis();
+        final String[] s = getFirstLine().split(SPACE);
+        if (s.length < 3) throw new BadRequestException();
+        protocol = s[0];
+        code = Integer.valueOf(s[1]);
+        message = String.join(SPACE, Arrays.copyOfRange(s, 2, s.length));
+
+        //Если ответ содержит редирект или это ответ на метод HEAD, то не читаем
+        //тело
+        if (
+                Arrays.asList(201, 301, 302, 303, 307, 308).contains(code)
+                        || HEAD_METHOD.equalsIgnoreCase(request.getMethod())
+        ) {
+            readBody = false;
+        }
+        super.readHeaders(is);
     }
 
     @Override
@@ -46,6 +59,6 @@ public final class Response extends HttpReader {
     }
 
     public String getUrl() {
-        return url;
+        return request.getUrl();
     }
 }

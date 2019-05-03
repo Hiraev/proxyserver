@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'proxyserver'
-version '1.0.0'
+version '2.0.0'
 
 sourceCompatibility = 1.8
 
@@ -16,11 +16,10 @@ dependencies {
 }
 
 
-task fatJar(type: Jar) {
+jar {
     manifest {
         attributes 'Implementation-Title': 'Gradle Jar File Example', 'Implementation-Version': version, 'Main-Class': 'http.proxy.ServerRunner'
     }
     baseName = project.name
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
 }
